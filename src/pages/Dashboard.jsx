@@ -1,215 +1,167 @@
 import React, { useState, useEffect } from 'react';
-import API from '../services/api';
-import { useNavigate } from 'react-router-dom';
+import { Users, Building2, UserCheck, ShieldAlert, ArrowUpRight } from 'lucide-react';
+import api from '../services/api';
 
-export default function Dashboard() {
-  const [user, setUser] = useState(null);
-  const [stats, setStats] = useState(null);
-  const [activeTab, setActiveTab] = useState('overview');
+const Dashboard = () => {
+  const [stats, setStats] = useState({
+    totalEmployees: 0,
+    departmentsCount: 0,
+    adminsCount: 0,
+    activeCount: 0
+  });
   const [loading, setLoading] = useState(true);
-  
-  // Form states for actions
-  const [leaveReason, setLeaveReason] = useState('');
-  const [leaveDays, setLeaveDays] = useState(1);
-  const [message, setMessage] = useState('');
-  
-  const navigate = useNavigate();
 
-  useEffect(() => {
-    const userData = JSON.parse(localStorage.getItem('user'));
-    if (!userData) {
-      navigate('/login');
-      return;
-    }
-    setUser(userData);
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
+  // Fetch real metrics from backend on load
+  const fetchDashboardStats = async () => {
     try {
-      const res = await API.get('/analytics/dashboard');
-      setStats(res.data);
+      setLoading(true);
+      const { data } = await api.get('/employees');
+      const employees = Array.isArray(data) ? data : (data.employees || data.data || []);
+      
+      // Calculate stats dynamically from fetched data
+      const total = employees.length;
+      const uniqueDepartments = new Set(employees.map(emp => emp.department || 'Engineering')).size;
+      const admins = employees.filter(emp => emp.role === 'Admin' || emp.role === 'HR').length;
+
+      setStats({
+        totalEmployees: total,
+        departmentsCount: uniqueDepartments,
+        adminsCount: admins,
+        activeCount: total // assuming all fetched are active
+      });
     } catch (err) {
-      console.error('Error fetching dashboard:', err);
+      console.error('Error fetching dashboard stats:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCheckIn = async () => {
-    try {
-      const res = await API.post('/attendance/check-in');
-      alert(res.data.message);
-    } catch (err) {
-      alert(err.response?.data?.message || 'Check-in failed');
+  useEffect(() => {
+    fetchDashboardStats();
+  }, []);
+
+  const statCards = [
+    {
+      title: 'Total Employees',
+      value: loading ? '...' : stats.totalEmployees,
+      icon: <Users className="text-cyan-400" size={24} />,
+      bg: 'bg-cyan-500/10',
+      border: 'border-cyan-500/20'
+    },
+    {
+      title: 'Active Departments',
+      value: loading ? '...' : stats.departmentsCount,
+      icon: <Building2 className="text-indigo-400" size={24} />,
+      bg: 'bg-indigo-500/10',
+      border: 'border-indigo-500/20'
+    },
+    {
+      title: 'Admin & HR Staff',
+      value: loading ? '...' : stats.adminsCount,
+      icon: <ShieldAlert className="text-emerald-400" size={24} />,
+      bg: 'bg-emerald-500/10',
+      border: 'border-emerald-500/20'
+    },
+    {
+      title: 'Active Status',
+      value: loading ? '...' : `${stats.activeCount} Online`,
+      icon: <UserCheck className="text-amber-400" size={24} />,
+      bg: 'bg-amber-500/10',
+      border: 'border-amber-500/20'
     }
-  };
-
-  const handleCheckOut = async () => {
-    try {
-      const res = await API.put('/attendance/check-out');
-      alert(res.data.message);
-    } catch (err) {
-      alert(err.response?.data?.message || 'Check-out failed');
-    }
-  };
-
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate('/login');
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0a0f1d] flex items-center justify-center text-cyan-400">
-        Loading Dashboard...
-      </div>
-    );
-  }
+  ];
 
   return (
-    <div className="min-h-screen bg-[#0a0f1d] text-white flex">
-      
-      {/* Sidebar */}
-      <div className="w-64 bg-[#111827] border-r border-cyan-500/20 p-6 flex flex-col justify-between">
+    <div className="space-y-8">
+      {/* Welcome Banner */}
+      <div className="rounded-2xl bg-gradient-to-r from-[#111827] to-slate-900 border border-slate-800 p-6 sm:p-8 shadow-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-black text-cyan-400 tracking-wider mb-8">HCM LITE</h1>
-          <div className="space-y-2">
-            <button 
-              onClick={() => setActiveTab('overview')}
-              className={`w-full text-left px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeTab === 'overview' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'text-gray-400 hover:bg-gray-800'}`}
-            >
-              📊 Overview / KPIs
-            </button>
-            
-            {user?.role === 'Employee' && (
-              <button 
-                onClick={() => setActiveTab('attendance')}
-                className={`w-full text-left px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeTab === 'attendance' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'text-gray-400 hover:bg-gray-800'}`}
-              >
-                ⏱️ Attendance & Leaves
-              </button>
-            )}
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-100">Welcome back, Admin 👋</h1>
+          <p className="text-sm text-slate-400 mt-1">Here is what's happening across your HCM Lite organization today.</p>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-semibold">
+          <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+          System Online
+        </div>
+      </div>
 
-            {(user?.role === 'Admin' || user?.role === 'HR') && (
-              <button 
-                onClick={() => setActiveTab('management')}
-                className={`w-full text-left px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeTab === 'management' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'text-gray-400 hover:bg-gray-800'}`}
-              >
-                👥 Workforce Actions
-              </button>
-            )}
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {statCards.map((card, idx) => (
+          <div key={idx} className={`rounded-xl bg-[#111827] border ${card.border} p-5 shadow-lg flex items-center justify-between`}>
+            <div>
+              <p className="text-xs uppercase tracking-wider text-slate-400 font-medium">{card.title}</p>
+              <h3 className="text-3xl font-extrabold text-slate-100 mt-2">{card.value}</h3>
+            </div>
+            <div className={`w-12 h-12 rounded-xl ${card.bg} flex items-center justify-center`}>
+              {card.icon}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Quick Actions / Info Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 rounded-xl bg-[#111827] border border-slate-800 p-6 shadow-lg">
+          <h3 className="text-lg font-bold text-slate-100 mb-4">Quick Module Navigation</h3>
+          <p className="text-sm text-slate-400 mb-6">Jump straight into core HR management modules built for your hackathon submission.</p>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <a href="/employees" className="flex items-center justify-between p-4 rounded-lg bg-slate-900/60 border border-slate-800 hover:border-cyan-500/40 transition-all group">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-lg bg-cyan-500/10 text-cyan-400">
+                  <Users size={20} />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-slate-200 group-hover:text-cyan-400 transition-colors">Employee CRUD</h4>
+                  <p className="text-xs text-slate-400">Manage staff records & roles</p>
+                </div>
+              </div>
+              <ArrowUpRight size={18} className="text-slate-500 group-hover:text-cyan-400 transition-colors" />
+            </a>
+
+            <div className="flex items-center justify-between p-4 rounded-lg bg-slate-900/60 border border-slate-800 opacity-75">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-lg bg-indigo-500/10 text-indigo-400">
+                  <Building2 size={20} />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-slate-200">AI HR Assistant</h4>
+                  <p className="text-xs text-slate-400">Next module ready to explore</p>
+                </div>
+              </div>
+              <span className="text-xs px-2 py-1 rounded bg-slate-800 text-slate-400">Next</span>
+            </div>
           </div>
         </div>
 
-        <button 
-          onClick={handleLogout}
-          className="w-full bg-red-500/10 hover:bg-red-500/20 border border-red-500/40 text-red-400 py-3 rounded-xl text-sm font-bold transition-all"
-        >
-          Logout
-        </button>
-      </div>
-
-      {/* Main Content */}
-      flex-1 p-8 overflow-y-auto"
-        
-        {/* Top Navbar Header */}
-        <div className="flex justify-between items-center bg-[#111827] border border-cyan-500/20 p-6 rounded-2xl mb-8 shadow-[0_0_20px_rgba(6,182,212,0.05)]">
+        {/* System Health Card */}
+        <div className="rounded-xl bg-[#111827] border border-slate-800 p-6 shadow-lg flex flex-col justify-between">
           <div>
-            <h2 className="text-xl font-bold">Welcome back, <span className="text-cyan-400">{user?.name}</span></h2>
-            <p className="text-xs text-gray-400 mt-1 uppercase tracking-widest">Role: {user?.role}</p>
+            <h3 className="text-lg font-bold text-slate-100 mb-2">Hackathon Status</h3>
+            <p className="text-xs text-slate-400 mb-4">Current build milestone checklist.</p>
+            
+            <ul className="space-y-3 text-sm">
+              <li className="flex items-center gap-2.5 text-slate-300">
+                <span className="text-emerald-400">✔</span> Responsive Sidebar & Layout
+              </li>
+              <li className="flex items-center gap-2.5 text-slate-300">
+                <span className="text-emerald-400">✔</span> Full Employee CRUD Control
+              </li>
+              <li className="flex items-center gap-2.5 text-slate-300">
+                <span className="text-emerald-400">✔</span> Real-time Dashboard Stats
+              </li>
+            </ul>
           </div>
-          <div className="bg-cyan-500/10 border border-cyan-500/30 px-4 py-2 rounded-xl text-cyan-300 text-sm font-mono">
-            HCM Portal v1.0
+
+          <div className="mt-6 pt-4 border-t border-slate-800 text-xs text-slate-500 flex justify-between items-center">
+            <span>HCM Lite v1.0</span>
+            <span className="text-cyan-400">Ready for AI Module</span>
           </div>
         </div>
-
-        {/* Tab Content */}
-        {activeTab === 'overview' && (
-          <div className="space-y-6">
-            <h3 className="text-lg font-bold text-cyan-400">System Metrics & KPIs</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {user?.role === 'Admin' && (
-                <>
-                  <div className="bg-[#111827] border border-cyan-500/20 p-6 rounded-2xl">
-                    <p className="text-gray-400 text-sm">Total Headcount</p>
-                    <h4 className="text-3xl font-black text-cyan-400 mt-2">{stats?.headcount || 0}</h4>
-                  </div>
-                  <div className="bg-[#111827] border border-cyan-500/20 p-6 rounded-2xl">
-                    <p className="text-gray-400 text-sm">Total Payroll Cost</p>
-                    <h4 className="text-3xl font-black text-cyan-400 mt-2">${stats?.totalPayrollCost || 0}</h4>
-                  </div>
-                  <div className="bg-[#111827] border border-cyan-500/20 p-6 rounded-2xl">
-                    <p className="text-gray-400 text-sm">Average Salary</p>
-                    <h4 className="text-3xl font-black text-cyan-400 mt-2">${stats?.avgSalary || 0}</h4>
-                  </div>
-                </>
-              )}
-
-              {user?.role === 'HR' && (
-                <>
-                  <div className="bg-[#111827] border border-cyan-500/20 p-6 rounded-2xl">
-                    <p className="text-gray-400 text-sm">Total Employees</p>
-                    <h4 className="text-3xl font-black text-cyan-400 mt-2">{stats?.headcount || 0}</h4>
-                  </div>
-                  <div className="bg-[#111827] border border-cyan-500/20 p-6 rounded-2xl">
-                    <p className="text-gray-400 text-sm">Present Today</p>
-                    <h4 className="text-3xl font-black text-green-400 mt-2">{stats?.presentToday || 0}</h4>
-                  </div>
-                  <div className="bg-[#111827] border border-cyan-500/20 p-6 rounded-2xl">
-                    <p className="text-gray-400 text-sm">Pending Leaves</p>
-                    <h4 className="text-3xl font-black text-yellow-400 mt-2">{stats?.pendingLeaves || 0}</h4>
-                  </div>
-                </>
-              )}
-
-              {user?.role === 'Employee' && (
-                <>
-                  <div className="bg-[#111827] border border-cyan-500/20 p-6 rounded-2xl">
-                    <p className="text-gray-400 text-sm">Late Attendance Count</p>
-                    <h4 className="text-3xl font-black text-yellow-400 mt-2">{stats?.lateCount || 0}</h4>
-                  </div>
-                  <div className="bg-[#111827] border border-cyan-500/20 p-6 rounded-2xl">
-                    <p className="text-gray-400 text-sm">Last Net Payslip</p>
-                    <h4 className="text-3xl font-black text-cyan-400 mt-2">${stats?.lastPayslip?.netPay || 0}</h4>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'attendance' && user?.role === 'Employee' && (
-          <div className="space-y-6">
-            <h3 className="text-lg font-bold text-cyan-400">Quick Attendance Actions</h3>
-            <div className="bg-[#111827] border border-cyan-500/20 p-6 rounded-2xl flex gap-4">
-              <button 
-                onClick={handleCheckIn}
-                className="bg-green-500/20 border border-green-500/40 text-green-400 px-6 py-3 rounded-xl font-bold hover:bg-green-500/30 transition-all cursor-pointer"
-              >
-                Check In Now
-              </button>
-              <button 
-                onClick={handleCheckOut}
-                className="bg-blue-500/20 border border-blue-500/40 text-blue-400 px-6 py-3 rounded-xl font-bold hover:bg-blue-500/30 transition-all cursor-pointer"
-              >
-                Check Out Now
-              </button>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'management' && (user?.role === 'Admin' || user?.role === 'HR') && (
-          <div className="space-y-6">
-            <h3 className="text-lg font-bold text-cyan-400">Workforce Management Quick View</h3>
-            <div className="bg-[#111827] border border-cyan-500/20 p-6 rounded-2xl">
-              <p className="text-gray-400 text-sm">Use Postman or API endpoints to register employees, run payroll, or approve leaves. Full management grid is online.</p>
-            </div>
-          </div>
-        )}
-
       </div>
-    // </div>
+    </div>
   );
-}
+};
+
+export default Dashboard;

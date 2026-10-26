@@ -1,16 +1,33 @@
 import axios from 'axios';
 
-const API = axios.create({
-  baseURL: 'https://my-backend-01115.containers.snapdeploy.app', // Backend URL
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
-// Automatically attach JWT token to requests if available
-API.interceptors.request.use((req) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    req.headers.Authorization = `Bearer ${token}`;
+// Request interceptor to automatically attach JWT token (Supports both formats)
+api.interceptors.request.use((config) => {
+  let token = localStorage.getItem('token');
+  
+  if (!token) {
+    const userInfo = localStorage.getItem('userInfo');
+    if (userInfo) {
+      try {
+        const parsed = JSON.parse(userInfo);
+        token = parsed.token || parsed;
+      } catch (e) {}
+    }
   }
-  return req;
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  
+  return config;
+}, (error) => {
+  return Promise.reject(error);
 });
 
-export default API;
+export default api;
